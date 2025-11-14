@@ -339,6 +339,7 @@ class S4ND(SequenceModule):
     def state_to_tensor(self):
         raise NotImplementedError
 
+# Now with the S4ND code complete (with some modifications made, we can declare our TBNN)
 
 class UnetTBNN(nn.Module):
     def __init__(self, k_args, k_args2):
@@ -358,26 +359,7 @@ class UnetTBNN(nn.Module):
         self.S4ND3 = S4ND(d_model=22, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
                           linear=True, bidirectional=False, transposed=True,
                           return_state=False, mode='s4', k_arg=k_args)
-        #self.S4ND35 = S4ND(d_model=22, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                   linear=True, bidirectional=False, transposed=True,
-        #                   return_state=False, mode='s4', k_arg=k_args)
-        #self.S4ND4 = S4ND(d_model=8, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                  linear=True, bidirectional=False, transposed=True,
-        #                  return_state=False, mode='s4', k_arg=k_args)
-        #self.S4ND3m = S4ND(d_model=22, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                  linear=True, bidirectional=False, transposed=True,
-        #                  return_state=False, mode='s4', k_arg=k_args)
-        #self.S4ND35m = S4ND(d_model=22, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                   linear=True, bidirectional=False, transposed=True,
-        #                   return_state=False, mode='s4', k_arg=k_args)
-        #self.S4ND4m = S4ND(d_model=8, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                  linear=True, bidirectional=False, transposed=True,
-        #                  return_state=False, mode='s4', k_arg=k_args)
-        #self.S4NDout = S4ND(d_model=6, d_state=8, dim=3, l_max=(None, None, None), contract_version=1,
-        #                  linear=True, bidirectional=False, transposed=True,
-        #                  return_state=False, mode='s4', k_arg=k_args)
 
-        # self.S4ND1._reinit(dt_min=2*np.pi/1024*16, dt_max=2*np.pi/1024*16)
         self.activation_leaky = nn.LeakyReLU(0.2, inplace=True)
         self.dropout = nn.Dropout(p=0.1)
         self.avgpool = nn.AvgPool3d(kernel_size=2, stride=2)
@@ -403,7 +385,6 @@ class UnetTBNN(nn.Module):
         self.S4ND3.reinit(k_arg1)
 
         x = self.activation_leaky(self.S4ND1(invar_in))
-        #x = self.dropout(x)
         x = self.activation_leaky(self.S4ND15(x))
         x_2 = self.avgpool(x)
         x_2 = self.activation_leaky(self.S4ND2(x_2))
@@ -604,6 +585,7 @@ class UnetTBNN(nn.Module):
         return y*ym
 
 
+# now we can declare the inputs
 datasize = 1
 spacialdim = 16
 delta = np.ones((datasize, 8, spacialdim, spacialdim, spacialdim))
@@ -627,7 +609,7 @@ rotstrain2_m = np.zeros((datasize, spacialdim, spacialdim, spacialdim, 3, 3))
 final = np.zeros((datasize, 9, spacialdim, spacialdim, spacialdim))
 scalef = np.zeros((datasize, spacialdim, spacialdim, spacialdim))
 
-# load data
+# load the inputs
 i = 0
 for j in range(datasize):
    file_name = 'train_' + str(j) + '.h5'
@@ -668,6 +650,7 @@ for j in range(datasize):
    rot[i, ::1, ::1, ::1, ::1, ::1] = f['dataset_JHTB']
    i = i + 1
 
+# ensure trace is divergence free
 train_load[::1, ::1, 0, ::1, ::1, ::1] = np.zeros((train_load.shape[0], 10, spacialdim, spacialdim, spacialdim))
 
 
@@ -679,12 +662,13 @@ test_load_new[::1, 0, 3, ::1, ::1, ::1] = test_load[::1, 0, 4, ::1, ::1, ::1]
 test_load_new[::1, 0, 4, ::1, ::1, ::1] = test_load[::1, 0, 5, ::1, ::1, ::1]
 test_load_new[::1, 0, 5, ::1, ::1, ::1] = test_load[::1, 0, 8, ::1, ::1, ::1]
 
-
+# deviatoric
 trace = test_load_new[::1, 0, 0, ::1, ::1, ::1]+test_load_new[::1, 0, 3, ::1, ::1, ::1]+test_load_new[::1, 0, 5, ::1, ::1, ::1]
 test_load_new[::1, 0, 0, ::1, ::1, ::1] = test_load_new[::1, 0, 0, ::1, ::1, ::1]-1/3*trace
 test_load_new[::1, 0, 3, ::1, ::1, ::1] = test_load_new[::1, 0, 3, ::1, ::1, ::1]-1/3*trace
 test_load_new[::1, 0, 5, ::1, ::1, ::1] = test_load_new[::1, 0, 5, ::1, ::1, ::1]-1/3*trace
 
+# intialize the bandlimiting
 k_args_x = {'dt_min': 2 * np.pi / 64, 'dt_max': 2 * np.pi / 64, 'deterministic': True, 'dt_tie': True, 'bandlimit': 0.1}
 k_args_y = {'dt_min': 2 * np.pi / 64, 'dt_max': 2 * np.pi / 64, 'deterministic': True, 'dt_tie': True, 'bandlimit': 0.1}
 k_args_z = {'dt_min': 2 * np.pi / 64, 'dt_max': 2 * np.pi / 64, 'deterministic': True, 'dt_tie': True, 'bandlimit': 0.1}
@@ -695,11 +679,12 @@ k_args2_y = {'dt_min': 2 * np.pi / 32, 'dt_max': 2 * np.pi / 32, 'deterministic'
 k_args2_z = {'dt_min': 2 * np.pi / 32, 'dt_max': 2 * np.pi / 32, 'deterministic': True, 'dt_tie': True, 'bandlimit': 0.1}
 k_args2 = [k_args2_x, k_args2_y, k_args2_z]
 
-
+# now create the model
 model2 = UnetTBNN(k_args, k_args2).to(device)
 model2.load_state_dict(torch.load('S4ND_model'))
 model2.eval()
 
+# all inputs to GPU
 train_loadnorm = torch.from_numpy(train_load).to(device, dtype=torch.float)
 strain2nonorm = torch.from_numpy(strain2nonorm).to(device, dtype=torch.float)
 strain2 = torch.from_numpy(strain2).to(device, dtype=torch.float)
@@ -717,8 +702,7 @@ test_final = np.zeros((1, 6, spacialdim, spacialdim, spacialdim))
 k_args = [{k: torch.tensor(v).to(device=device, non_blocking=True) for k, v in _data.items()} for _data in k_args]
 k_args2 = [{k: torch.tensor(v).to(device=device, non_blocking=True) for k, v in _data.items()} for _data in k_args2]
 
-#test = np.mean(scalef[0:1:1, ::1, ::1, ::1])
-#test = test * scalef[0:1:1, ::1, ::1, ::1]
+# multiply the non-dimensional output with the dimensional scaling
 test = scalef[0:1:1, ::1, ::1, ::1]
 test2 = model2(train_loadnorm[0:1:1, 9, 0:11, ::1, ::1, ::1], strain2[0:1:1, ::1, ::1, ::1, ::1, ::1],
                strain2_m[0:1:1, ::1, ::1, ::1, ::1, ::1], rot2[0:1:1, ::1, ::1, ::1, ::1, ::1],
@@ -728,11 +712,13 @@ test2 = model2(train_loadnorm[0:1:1, 9, 0:11, ::1, ::1, ::1], strain2[0:1:1, ::1
 test2 = test2.detach().cpu().numpy()
 test = test*test2
 
+# make deviatoric
 trace = test[::1, 0, ::1, ::1, ::1] + test[::1, 3, ::1, ::1, ::1] + test[::1, 5, ::1, ::1, ::1]
 test[::1, 0, ::1, ::1, ::1] = test[::1, 0, ::1, ::1, ::1] - 1 / 3 * trace
 test[::1, 3, ::1, ::1, ::1] = test[::1, 3, ::1, ::1, ::1] - 1 / 3 * trace
 test[::1, 5, ::1, ::1, ::1] = test[::1, 5, ::1, ::1, ::1] - 1 / 3 * trace
 
+# the GNN prediction
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 fig3 = plt.figure(figsize = (15, 15))
 a = fig3.add_subplot(121)
@@ -745,6 +731,7 @@ divider = make_axes_locatable(a)
 cax = divider.append_axes('right', size='10%', pad=0.05)
 fig3.colorbar(im2,cax=cax)
 
+# The ground truth
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 fig3 = plt.figure(figsize = (15, 15))
 a = fig3.add_subplot(121)
